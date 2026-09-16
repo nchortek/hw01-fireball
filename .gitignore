@@ -65,3 +65,6 @@ dist/
 
 # Vite cache
 .vite/
+
+# Visual studio
+.vs/
