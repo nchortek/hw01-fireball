@@ -33,13 +33,13 @@ float computeSurflet(vec3 P, vec3 gridPoint);
 void main()
 {
     // Material base color (before shading)
-    float zeroToOnePerlin = (fractalPerlinNoise(fs_Pos.xyz) + 1.0) / 2.0;
+    float zeroToOnePerlin = (fractalPerlinNoise(fs_Pos.xyz) + 1.0) * 0.5;
     vec4 diffuseColor = vec4(mix(u_Color.rgb, vec3(1, 0.5, 1), zeroToOnePerlin), u_Color.a);
 
     // Calculate the diffuse term for Lambert shading
     float diffuseTerm = dot(normalize(fs_Nor), normalize(fs_LightVec));
     // Avoid negative lighting values
-    // diffuseTerm = clamp(diffuseTerm, 0, 1);
+    diffuseTerm = clamp(diffuseTerm, 0.0, 1.0);
 
     float ambientTerm = 0.2;
 

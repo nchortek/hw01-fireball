@@ -33,23 +33,29 @@ out vec4 fs_LightVec;       // The direction in which our virtual light lies, re
 out vec4 fs_Col;            // The color of each vertex. This is implicitly passed to the fragment shader.
 out vec4 fs_Pos;
 
-const vec4 lightPos = vec4(5, 5, 3, 1); //The position of our virtual light, which is used to compute the shading of
+const vec4 lightPos = vec4(500, 500, 300, 1); //The position of our virtual light, which is used to compute the shading of
                                         //the geometry in the fragment shader.
 
+const vec3 zAxis = vec3(0.0, 0.0, 1.0);
+const vec3 yAxis = vec3(0.0, 1.0, 0.0);
+
+const float epsilon = 0.0001;
 
 vec3 random3(vec3 p);
 float worleyNoise3(vec3 p);
+float fractalWorleyNoise(vec3 p);
+float sinusoidalWarp(vec3 p);
+float computeDisplacement(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime);
+vec3 computeDisplacedNormal(vec3 p, vec3 displacedP, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime);
+vec3 computeUnitSphereNormal(vec3 p);
+vec3 computeDisplacedPoint(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime);
 
 void main()
 {
-    float fastSinTime = ((sin(u_Time * .02) + 1.0) / 2.0);
-    float fastCosTime = ((cos(u_Time * .02) + 1.0) / 2.0);
-    float slowCosTime = 1.0 - ((cos(u_Time * .01) + 1.0) / 2.0);
-
     fs_Col = vs_Col;                         // Pass the vertex colors to the fragment shader for interpolation
 
     mat3 invTranspose = mat3(u_ModelInvTr);
-    fs_Nor = vec4(invTranspose * vec3(vs_Nor), 0);          // Pass the vertex normals to the fragment shader for interpolation.
+    vec3 nor = normalize(invTranspose * vec3(vs_Nor));          // Pass the vertex normals to the fragment shader for interpolation.
                                                             // Transform the geometry's normals by the inverse transpose of the
                                                             // model matrix. This is necessary to ensure the normals remain
                                                             // perpendicular to the surface after the surface is transformed by
@@ -57,14 +63,22 @@ void main()
 
     vec4 modelposition = u_Model * vs_Pos;   // Temporarily store the transformed vertex positions for use below
 
-    fs_LightVec = lightPos - modelposition;  // Compute the direction in which the light source lies
+    float fastSinTime = ((sin(u_Time * .002) + 1.0) / 2.0);
+    float fastCosTime = ((cos(u_Time * .002) + 1.0) / 2.0);
+    float slowCosTime = 1.0 - ((cos(u_Time * .001) + 1.0) / 2.0);
 
-    float noise = worleyNoise3(modelposition.xyz + vec3(fastSinTime, fastCosTime, fastSinTime));
-    vec4 newPos = modelposition + fs_Nor * noise * slowCosTime;
+    vec3 displacedP = computeDisplacedPoint(modelposition.xyz, fastSinTime, fastCosTime, slowCosTime);
+    vec3 newNor = computeDisplacedNormal(modelposition.xyz, displacedP, nor, fastSinTime, fastCosTime, slowCosTime);
+    fs_Nor = vec4(newNor, 0.0);
+
+    vec4 newPos = vec4(displacedP, 1.0);
+
+    fs_LightVec = lightPos - newPos;  // Compute the direction in which the light source lies
 
     gl_Position = u_ViewProj * newPos;// gl_Position is a built-in variable of OpenGL which is
                                              // used to render the final positions of the geometry's vertices
-    fs_Pos = gl_Position;
+
+    fs_Pos = newPos;
 }
 
 vec3 random3(vec3 p)
@@ -106,4 +120,67 @@ float worleyNoise3(vec3 p)
     }
 
     return minDist;
+}
+
+float fractalWorleyNoise(vec3 p)
+{
+    float total = 0.0;
+    float persistence = 0.5;
+    int octaves = 4;
+    float freq = 10.0;
+    float amp = 0.5;
+
+    for (int i = 1; i <= octaves; i++)
+    {
+        float noiseStep = worleyNoise3(p * freq);
+        total += noiseStep * amp;
+        freq *= 2.0;
+        amp *= persistence;
+    }
+
+    return total;
+}
+
+float sinusoidalWarp(vec3 p)
+{
+    return 0.0;
+}
+
+float computeDisplacement(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime)
+{
+    vec3 jitteredP = p + vec3(fastSinTime, fastCosTime, fastSinTime);
+    return (sinusoidalWarp(jitteredP) + fractalWorleyNoise(jitteredP)) * slowCosTime;
+}
+
+vec3 computeDisplacedPoint(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime)
+{
+    return p + computeDisplacement(p, fastSinTime, fastCosTime, slowCosTime) * computeUnitSphereNormal(p);
+}
+
+vec3 computeDisplacedNormal(vec3 p, vec3 displacedP, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime)
+{
+    vec3 tangent;
+
+    if (abs(dot(nor, zAxis)) > 0.9)
+    {
+        tangent = normalize(cross(yAxis, nor));
+    }
+    else
+    {
+        tangent = normalize(cross(zAxis, nor));
+    }
+
+    vec3 bitangent = cross(nor, tangent);
+
+    vec3 pTan = p + epsilon * tangent;
+    vec3 pBitan = p + epsilon * bitangent;
+
+    vec3 displacedT = computeDisplacedPoint(pTan, fastSinTime, fastCosTime, slowCosTime);
+    vec3 displacedB = computeDisplacedPoint(pBitan, fastSinTime, fastCosTime, slowCosTime);
+    return normalize(cross(displacedT - displacedP, displacedB - displacedP));
+}
+
+vec3 computeUnitSphereNormal(vec3 p)
+{
+    return normalize(p);
 }
