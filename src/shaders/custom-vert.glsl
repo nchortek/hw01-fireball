@@ -30,30 +30,31 @@ in vec4 vs_Col;             // The array of vertex colors passed to the shader.
 
 out vec4 fs_Nor;            // The array of normals that has been transformed by u_ModelInvTr. This is implicitly passed to the fragment shader.
 out vec4 fs_LightVec;       // The direction in which our virtual light lies, relative to each vertex. This is implicitly passed to the fragment shader.
-out vec4 fs_Col;            // The color of each vertex. This is implicitly passed to the fragment shader.
 out vec4 fs_Pos;
 
 const vec4 lightPos = vec4(500, 500, 300, 1); //The position of our virtual light, which is used to compute the shading of
                                         //the geometry in the fragment shader.
 
+const vec3 tailDir = vec3(1.0, 0.0, 0.0);
 const vec3 zAxis = vec3(0.0, 0.0, 1.0);
 const vec3 yAxis = vec3(0.0, 1.0, 0.0);
 
 const float epsilon = 0.0001;
 
 vec3 random3(vec3 p);
+float quinticPoly1(float t);
+vec3 quinticPoly3(vec3 t);
+float perlinNoise(vec3 p);
+float computeSurflet(vec3 P, vec3 gridPoint);
 float worleyNoise3(vec3 p);
-float fractalWorleyNoise(vec3 p);
-float sinusoidalWarp(vec3 p);
-float computeDisplacement(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime);
+float fractalWorleyNoise(vec3 p, float mask);
+float sinusoidalWarp(vec3 p, float mask, float slowCosTime);
+vec3 computeDisplacedPoint(vec3 p, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime);
 vec3 computeDisplacedNormal(vec3 p, vec3 displacedP, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime);
 vec3 computeUnitSphereNormal(vec3 p);
-vec3 computeDisplacedPoint(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime);
 
 void main()
 {
-    fs_Col = vs_Col;                         // Pass the vertex colors to the fragment shader for interpolation
-
     mat3 invTranspose = mat3(u_ModelInvTr);
     vec3 nor = normalize(invTranspose * vec3(vs_Nor));          // Pass the vertex normals to the fragment shader for interpolation.
                                                             // Transform the geometry's normals by the inverse transpose of the
@@ -63,11 +64,11 @@ void main()
 
     vec4 modelposition = u_Model * vs_Pos;   // Temporarily store the transformed vertex positions for use below
 
-    float fastSinTime = ((sin(u_Time * .002) + 1.0) / 2.0);
-    float fastCosTime = ((cos(u_Time * .002) + 1.0) / 2.0);
-    float slowCosTime = 1.0 - ((cos(u_Time * .001) + 1.0) / 2.0);
+    float fastSinTime = (sin(u_Time * .002) + 1.0) / 2.0;
+    float fastCosTime = (cos(u_Time * .002) + 1.0) / 2.0;
+    float slowCosTime = (cos(u_Time * .001) + 1.0) / 2.0;
 
-    vec3 displacedP = computeDisplacedPoint(modelposition.xyz, fastSinTime, fastCosTime, slowCosTime);
+    vec3 displacedP = computeDisplacedPoint(modelposition.xyz, nor, fastSinTime, fastCosTime, slowCosTime);
     vec3 newNor = computeDisplacedNormal(modelposition.xyz, displacedP, nor, fastSinTime, fastCosTime, slowCosTime);
     fs_Nor = vec4(newNor, 0.0);
 
@@ -89,6 +90,58 @@ vec3 random3(vec3 p)
             dot(p, vec3(269.5, 183.3, 123.9)),
             dot(p, vec3(57.3, 277.9, 339.7)))
             * 43758.5453));
+}
+
+float quinticPoly1(float t)
+{
+    float t3 = t * t * t;
+    float t4 = t3 * t;
+    float t5 = t4 * t;
+
+    return 1.0 - 6.0 * t5 + 15.0 * t4 - 10.0 * t3;
+}
+
+vec3 quinticPoly3(vec3 t)
+{
+    return vec3(quinticPoly1(t.x), quinticPoly1(t.y), quinticPoly1(t.z));
+}
+
+float computeSurflet(vec3 P, vec3 gridPoint)
+{
+    // Compute falloff function by converting linear distance to a polynomial
+    vec3 dist = abs(P - gridPoint);
+    vec3 t = quinticPoly3(dist);
+
+    // Get the random vector for the grid point
+    vec3 gradient = 2.0 * random3(gridPoint) - vec3(1.0);
+
+    // Get the vector from the grid point to P
+    vec3 diff = P - gridPoint;
+
+    // Get the value of our height field by dotting grid->P with our gradient
+    float height = dot(diff, gradient);
+
+    // Scale our height field (i.e. reduce it) by our polynomial falloff function
+    return height * t.x * t.y * t.z;
+}
+
+float perlinNoise(vec3 p)
+{
+    float surfletSum = 0.0;
+
+    // Iterate over the eight integer corners surrounding pos
+    for (int dx = 0; dx <= 1; dx++)
+    {
+        for (int dy = 0; dy <= 1; dy++)
+        {
+            for (int dz = 0; dz <= 1; dz++)
+            {
+                surfletSum += computeSurflet(p, floor(p) + vec3(dx, dy, dz));
+            }
+        }
+    }
+
+    return surfletSum;
 }
 
 float worleyNoise3(vec3 p)
@@ -122,7 +175,7 @@ float worleyNoise3(vec3 p)
     return minDist;
 }
 
-float fractalWorleyNoise(vec3 p)
+float fractalWorleyNoise(vec3 p, float mask)
 {
     float total = 0.0;
     float persistence = 0.5;
@@ -138,23 +191,29 @@ float fractalWorleyNoise(vec3 p)
         amp *= persistence;
     }
 
-    return total;
+    return total * mix(0.3, 1.0, smoothstep(-0.3, 0.5, mask));
 }
 
-float sinusoidalWarp(vec3 p)
+float sinusoidalWarp(vec3 p, float mask, float slowCosTime)
 {
-    return 0.0;
+    float freq1 = 60.0;
+    float freq2 = 45.0;
+    float sinAmp = 5.0;
+    float perlinAmp = 8.0;
+    float perlinFactor = perlinAmp * perlinNoise(p + slowCosTime);
+    float offset = sinAmp * (sin(freq1 * p.y + perlinFactor) + sin(freq2 * p.z + perlinFactor) + 2.0) * 0.25;
+    return smoothstep(-0.3, 1.0, mask) * offset;
 }
 
-float computeDisplacement(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime)
+vec3 computeDisplacedPoint(vec3 p, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime)
 {
+    float mask = dot(nor, tailDir);
     vec3 jitteredP = p + vec3(fastSinTime, fastCosTime, fastSinTime);
-    return (sinusoidalWarp(jitteredP) + fractalWorleyNoise(jitteredP)) * slowCosTime;
-}
-
-vec3 computeDisplacedPoint(vec3 p, float fastSinTime, float fastCosTime, float slowCosTime)
-{
-    return p + computeDisplacement(p, fastSinTime, fastCosTime, slowCosTime) * computeUnitSphereNormal(p);
+    float sinFactor = sinusoidalWarp(p, mask, slowCosTime);
+    vec3 sinDisplacement = sinFactor * tailDir;
+    float worleyFactor = fractalWorleyNoise(jitteredP, mask);
+    vec3 worleyDisplacement = worleyFactor * nor;
+    return p + sinDisplacement - worleyDisplacement;
 }
 
 vec3 computeDisplacedNormal(vec3 p, vec3 displacedP, vec3 nor, float fastSinTime, float fastCosTime, float slowCosTime)
@@ -175,8 +234,8 @@ vec3 computeDisplacedNormal(vec3 p, vec3 displacedP, vec3 nor, float fastSinTime
     vec3 pTan = p + epsilon * tangent;
     vec3 pBitan = p + epsilon * bitangent;
 
-    vec3 displacedT = computeDisplacedPoint(pTan, fastSinTime, fastCosTime, slowCosTime);
-    vec3 displacedB = computeDisplacedPoint(pBitan, fastSinTime, fastCosTime, slowCosTime);
+    vec3 displacedT = computeDisplacedPoint(pTan, computeUnitSphereNormal(pTan), fastSinTime, fastCosTime, slowCosTime);
+    vec3 displacedB = computeDisplacedPoint(pBitan, computeUnitSphereNormal(pBitan), fastSinTime, fastCosTime, slowCosTime);
     return normalize(cross(displacedT - displacedP, displacedB - displacedP));
 }
 

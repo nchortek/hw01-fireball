@@ -16,12 +16,12 @@ import customFragSource from './shaders/custom-frag.glsl?raw';
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
-    tesselations: 5,
+    tesselations: 8,
     'Load Scene': loadScene, // A function pointer, essentially
 };
 
 let icosphere: Icosphere;
-let prevTesselations: number = 5;
+let prevTesselations: number = 8;
 let time: number = 0;
 
 function loadScene() {
