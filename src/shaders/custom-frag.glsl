@@ -31,7 +31,6 @@ void main()
 {
     // Material base color (before shading)
     float mappedDisplacement = smoothstep(-2.0, 2.5, fs_Displacement);
-    //vec4 diffuseColor = vec4(mix(vec3(0.08, 0.14, 0.20), vec3(1.0, 0.05, 0.003), bias(mappedDisplacement, 0.8)), 1.0);
     vec4 diffuseColor = vec4(mix(vec3(0.08, 0.14, 0.20), u_Color.rgb, bias(mappedDisplacement, 0.8)), 1.0);
 
     // Calculate the diffuse term for Lambert shading
