@@ -30,7 +30,7 @@ in vec4 vs_Col;             // The array of vertex colors passed to the shader.
 
 out vec4 fs_Nor;            // The array of normals that has been transformed by u_ModelInvTr. This is implicitly passed to the fragment shader.
 out vec4 fs_LightVec;       // The direction in which our virtual light lies, relative to each vertex. This is implicitly passed to the fragment shader.
-out vec4 fs_Pos;
+out float fs_Displacement;
 
 const vec4 lightPos = vec4(500, 500, 300, 1); //The position of our virtual light, which is used to compute the shading of
                                         //the geometry in the fragment shader.
@@ -69,6 +69,7 @@ void main()
     float slowCosTime = (cos(u_Time * .001) + 1.0) / 2.0;
 
     vec3 displacedP = computeDisplacedPoint(modelposition.xyz, nor, fastSinTime, fastCosTime, slowCosTime);
+    fs_Displacement = dot(displacedP, tailDir);
     vec3 newNor = computeDisplacedNormal(modelposition.xyz, displacedP, nor, fastSinTime, fastCosTime, slowCosTime);
     fs_Nor = vec4(newNor, 0.0);
 
@@ -78,8 +79,6 @@ void main()
 
     gl_Position = u_ViewProj * newPos;// gl_Position is a built-in variable of OpenGL which is
                                              // used to render the final positions of the geometry's vertices
-
-    fs_Pos = newPos;
 }
 
 vec3 random3(vec3 p)
