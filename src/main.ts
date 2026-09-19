@@ -51,9 +51,9 @@ function main() {
 
     // Add controls to the gui
     gui.add(controls, 'tesselations', 0, 8).step(1);
-    gui.add(controls, 'octaves');
+    gui.add(controls, 'octaves').min(0).max(6).step(1);
     gui.addColor(controls, 'color');
-    gui.add(controls, 'timeScale');
+    gui.add(controls, 'timeScale').min(0.0).max(0.004).step(0.0001);
     gui.add(controls, 'Reset');
 
     // get canvas and webgl context
