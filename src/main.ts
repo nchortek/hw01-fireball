@@ -2,13 +2,14 @@ import {vec3, vec4} from 'gl-matrix';
 import Stats from 'stats-js';
 import * as DAT from 'dat.gui';
 import Icosphere from './geometry/Icosphere';
+import Square from './geometry/Square';
 import OpenGLRenderer from './rendering/gl/OpenGLRenderer';
 import Camera from './Camera';
 import {setGL} from './globals';
 import ShaderProgram, {Shader} from './rendering/gl/ShaderProgram';
 
-import lambertVertSource from './shaders/lambert-vert.glsl?raw';
-import lambertFragSource from './shaders/lambert-frag.glsl?raw';
+import skyVertSource from './shaders/sky-vert.glsl?raw';
+import skyFragSource from './shaders/sky-frag.glsl?raw';
 
 import customVertSource from './shaders/custom-vert.glsl?raw';
 import customFragSource from './shaders/custom-frag.glsl?raw';
@@ -25,6 +26,7 @@ const controls = {
 
 const gui = new DAT.GUI();
 
+let quad: Square;
 let icosphere: Icosphere;
 let prevTesselations: number = 8;
 let time: number = 0;
@@ -38,6 +40,9 @@ function loadScene() {
 
     icosphere = new Icosphere(vec3.fromValues(0, 0, 0), 1, controls.tesselations);
     icosphere.create();
+
+    quad = new Square(vec3.fromValues(0, 0, 0));
+    quad.create();
 }
 
 function main() {
@@ -74,11 +79,15 @@ function main() {
 
     const renderer = new OpenGLRenderer(canvas);
     renderer.setClearColor(0.2, 0.2, 0.2, 1);
-    gl.enable(gl.DEPTH_TEST);
 
-    const custom = new ShaderProgram([
+    const customShader = new ShaderProgram([
         new Shader(gl.VERTEX_SHADER, customVertSource),
         new Shader(gl.FRAGMENT_SHADER, customFragSource),
+    ]);
+
+    const skyShader = new ShaderProgram([
+        new Shader(gl.VERTEX_SHADER, skyVertSource),
+        new Shader(gl.FRAGMENT_SHADER, skyFragSource),
     ]);
 
     // This function will be called every frame
@@ -96,10 +105,16 @@ function main() {
             icosphere.create();
         }
 
-        renderer.render(
+        let color = vec4.fromValues(controls.color[0] / 255, controls.color[1] / 255, controls.color[2] / 255, controls.color[3]);
+
+        gl.disable(gl.DEPTH_TEST);
+        renderer.skyRender(camera, skyShader, quad, time, controls.timeScale, controls.octaves, color);
+
+        gl.enable(gl.DEPTH_TEST);
+        renderer.customRender(
             camera,
-            custom,
-            vec4.fromValues(controls.color[0] / 255, controls.color[1] / 255, controls.color[2] / 255, controls.color[3]),
+            customShader,
+            color,
             [
                 icosphere,
             ],

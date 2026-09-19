@@ -1,4 +1,4 @@
-import {vec4, mat4} from 'gl-matrix';
+import {vec3, vec4, mat4} from 'gl-matrix';
 import Drawable from './Drawable';
 import {gl} from '../../globals';
 
@@ -28,6 +28,8 @@ class ShaderProgram {
     unifModel: WebGLUniformLocation;
     unifModelInvTr: WebGLUniformLocation;
     unifViewProj: WebGLUniformLocation;
+    unifInvViewProj: WebGLUniformLocation;
+    unifEye: WebGLUniformLocation;
     unifColor: WebGLUniformLocation;
     unifTime: WebGLUniformLocation;
     unifTimeScale: WebGLUniformLocation;
@@ -49,6 +51,8 @@ class ShaderProgram {
         this.attrCol = gl.getAttribLocation(this.prog, "vs_Col");
         this.unifModel      = gl.getUniformLocation(this.prog, "u_Model");
         this.unifModelInvTr = gl.getUniformLocation(this.prog, "u_ModelInvTr");
+        this.unifInvViewProj = gl.getUniformLocation(this.prog, "u_InvViewProj");
+        this.unifEye = gl.getUniformLocation(this.prog, "u_Eye");
         this.unifViewProj   = gl.getUniformLocation(this.prog, "u_ViewProj");
         this.unifColor = gl.getUniformLocation(this.prog, "u_Color");
         this.unifTime = gl.getUniformLocation(this.prog, "u_Time");
@@ -81,6 +85,20 @@ class ShaderProgram {
         this.use();
         if (this.unifViewProj !== -1) {
             gl.uniformMatrix4fv(this.unifViewProj, false, vp);
+        }
+    }
+
+    setInvViewProjMatrix(ivp: mat4) {
+        this.use();
+        if (this.unifInvViewProj !== -1) {
+            gl.uniformMatrix4fv(this.unifInvViewProj, false, ivp);
+        }
+    }
+
+    setEye(eye: vec3) {
+        this.use();
+        if (this.unifEye !== -1) {
+            gl.uniform3fv(this.unifEye, eye);
         }
     }
 

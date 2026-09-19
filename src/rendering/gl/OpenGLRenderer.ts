@@ -22,7 +22,7 @@ class OpenGLRenderer {
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     }
 
-    render(camera: Camera, prog: ShaderProgram, color: vec4, drawables: Array<Drawable>, time: number, timeScale: number, octaves: number) {
+    customRender(camera: Camera, prog: ShaderProgram, color: vec4, drawables: Array<Drawable>, time: number, timeScale: number, octaves: number) {
         let model = mat4.create();
         let viewProj = mat4.create();
 
@@ -38,6 +38,25 @@ class OpenGLRenderer {
         for (let drawable of drawables) {
             prog.draw(drawable);
         }
+    }
+
+    skyRender(camera: Camera, prog: ShaderProgram, quad: Drawable, time: number, timeScale: number, octaves: number, color: vec4)
+    {
+        let model = mat4.create();
+        let viewProj = mat4.create();
+        let invViewProj = mat4.create();
+
+        mat4.identity(model);
+        mat4.multiply(viewProj, camera.projectionMatrix, camera.viewMatrix);
+        mat4.invert(invViewProj, viewProj);
+        prog.setInvViewProjMatrix(invViewProj);
+        prog.setEye(camera.position);
+        prog.setTime(time);
+        prog.setTimeScale(timeScale);
+        prog.setOctaves(octaves);
+        prog.setGeometryColor(color);
+
+        prog.draw(quad);
     }
 };
 
