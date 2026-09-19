@@ -16,15 +16,26 @@ import customFragSource from './shaders/custom-frag.glsl?raw';
 // Define an object with application parameters and button callbacks
 // This will be referred to by dat.GUI's functions that add GUI elements.
 const controls = {
+    octaves: 4,
+    timeScale: 0.002,
+    color: [255.0, 12.75, 0.765, 1.0],
     tesselations: 8,
-    'Load Scene': loadScene, // A function pointer, essentially
+    'Reset': loadScene, // A function pointer, essentially
 };
+
+const gui = new DAT.GUI();
 
 let icosphere: Icosphere;
 let prevTesselations: number = 8;
 let time: number = 0;
 
 function loadScene() {
+    controls.octaves = 4;
+    controls.timeScale = 0.002;
+    controls.color = [255.0, 12.75, 0.765, 1.0];
+    controls.tesselations = 8;
+    gui.updateDisplay();
+
     icosphere = new Icosphere(vec3.fromValues(0, 0, 0), 1, controls.tesselations);
     icosphere.create();
 }
@@ -39,9 +50,11 @@ function main() {
     document.body.appendChild(stats.domElement);
 
     // Add controls to the gui
-    const gui = new DAT.GUI();
     gui.add(controls, 'tesselations', 0, 8).step(1);
-    gui.add(controls, 'Load Scene');
+    gui.add(controls, 'octaves');
+    gui.addColor(controls, 'color');
+    gui.add(controls, 'timeScale');
+    gui.add(controls, 'Reset');
 
     // get canvas and webgl context
     const canvas = <HTMLCanvasElement> document.getElementById('canvas');
@@ -86,10 +99,13 @@ function main() {
         renderer.render(
             camera,
             custom,
+            vec4.fromValues(controls.color[0] / 255, controls.color[1] / 255, controls.color[2] / 255, controls.color[3]),
             [
                 icosphere,
             ],
-            time);
+            time,
+            controls.timeScale,
+            controls.octaves);
 
         stats.end();
 

@@ -9,6 +9,8 @@
 precision highp float;
 
 uniform float u_Time;
+uniform float u_TimeScale;
+uniform int u_Octaves;
 
 uniform mat4 u_Model;       // The matrix that defines the transformation of the
                             // object we're rendering. In this assignment,
@@ -64,9 +66,9 @@ void main()
 
     vec4 modelposition = u_Model * vs_Pos;   // Temporarily store the transformed vertex positions for use below
 
-    float fastSinTime = (sin(u_Time * .002) + 1.0) / 2.0;
-    float fastCosTime = (cos(u_Time * .002) + 1.0) / 2.0;
-    float slowCosTime = (cos(u_Time * .001) + 1.0) / 2.0;
+    float fastSinTime = (sin(u_Time * u_TimeScale) + 1.0) / 2.0;
+    float fastCosTime = (cos(u_Time * u_TimeScale) + 1.0) / 2.0;
+    float slowCosTime = (cos(u_Time * u_TimeScale * 0.5) + 1.0) / 2.0;
 
     vec3 displacedP = computeDisplacedPoint(modelposition.xyz, nor, fastSinTime, fastCosTime, slowCosTime);
     fs_Displacement = dot(displacedP, tailDir);
@@ -178,11 +180,10 @@ float fractalWorleyNoise(vec3 p, float mask)
 {
     float total = 0.0;
     float persistence = 0.5;
-    int octaves = 4;
     float freq = 10.0;
     float amp = 0.5;
 
-    for (int i = 1; i <= octaves; i++)
+    for (int i = 1; i <= u_Octaves; i++)
     {
         float noiseStep = worleyNoise3(p * freq);
         total += noiseStep * amp;

@@ -13,6 +13,7 @@ precision highp float;
 
 uniform vec4 u_Color; // The color with which to render this instance of geometry.
 uniform float u_Time;
+uniform float u_TimeScale;
 
 // These are the interpolated values out of the rasterizer, so you can't know
 // their specific values without knowing the vertices that contributed to them
@@ -30,7 +31,8 @@ void main()
 {
     // Material base color (before shading)
     float mappedDisplacement = smoothstep(-2.0, 2.5, fs_Displacement);
-    vec4 diffuseColor = vec4(mix(vec3(0.08, 0.14, 0.20), vec3(1.0, 0.05, 0.003), bias(mappedDisplacement, 0.8)), 1.0);
+    //vec4 diffuseColor = vec4(mix(vec3(0.08, 0.14, 0.20), vec3(1.0, 0.05, 0.003), bias(mappedDisplacement, 0.8)), 1.0);
+    vec4 diffuseColor = vec4(mix(vec3(0.08, 0.14, 0.20), u_Color.rgb, bias(mappedDisplacement, 0.8)), 1.0);
 
     // Calculate the diffuse term for Lambert shading
     float diffuseTerm = dot(normalize(fs_Nor), normalize(fs_LightVec));
@@ -42,7 +44,7 @@ void main()
     float lightIntensity = clamp(diffuseTerm + ambientTerm, 0.0, 1.0);
 
     // Compute final shaded color
-    float fastSinTime = 1.0 + 3.0 * bias((sin(u_Time * .002) + 1.0) / 2.0, 0.2);
+    float fastSinTime = 1.0 + 3.0 * bias((sin(u_Time * u_TimeScale) + 1.0) / 2.0, 0.2);
     float fireIntensity = mix(480.0, 12.0 * fastSinTime, bias(mappedDisplacement, 0.4));
     vec3 hdrColor = diffuseColor.rgb * fireIntensity * lightIntensity;
     out_Col = vec4(reinhard(hdrColor), diffuseColor.a);
